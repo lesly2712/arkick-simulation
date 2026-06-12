@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulator Fisika Ar-kick Kuantitatif - SMA</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background-color: #f4f7f6; color: #333; margin: 0; padding: 20px; }
+        h1 { color: #2c3e50; margin-bottom: 5px; }
+        p { color: #7f8c8d; margin-bottom: 25px; }
+        #mainContainer { display: flex; justify-content: center; align-items: flex-start; gap: 30px; flex-wrap: wrap; }
+        #canvasContainer { display: flex; gap: 20px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        canvas { background: #eef2f3; border: 1px solid #e0e0e0; border-radius: 8px; }
+        .side-panel { display: flex; flex-direction: column; gap: 15px; width: 300px; }
+        .panel { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); text-align: left; }
+        .panel-title { font-weight: bold; font-size: 15px; margin-bottom: 12px; border-bottom: 2px solid #2980b9; padding-bottom: 5px; color: #2c3e50; }
+        .control-group { margin-bottom: 15px; }
+        .control-group label { display: block; font-weight: bold; margin-bottom: 8px; color: #34495e; }
+        .control-group input[type="range"] { width: 100%; }
+        .value-display { float: right; font-weight: normal; color: #2980b9; }
+        .data-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; border-bottom: 1px dashed #eee; padding-bottom: 4px; }
+        .data-val { font-family: 'Courier New', Courier, monospace; font-weight: bold; color: #27ae60; }
+        .btn-group { display: flex; gap: 10px; margin-top: 10px; }
+        button { flex: 1; padding: 12px; font-size: 14px; font-weight: bold; cursor: pointer; border: none; border-radius: 6px; }
+        .btn-play { background-color: #2ecc71; color: white; }
+        .btn-reset { background-color: #e74c3c; color: white; }
+        .toggle-container { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+        /* Style untuk Switch/Toggle */
+        .switch { position: relative; display: inline-block; width: 50px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider-toggle { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
+        .slider-toggle:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider-toggle { background-color: #e67e22; }
+        input:checked + .slider-toggle:before { transform: translateX(26px); }
+    </style>
+</head>
+<body>
+
+    <h1>Simulator Fisika Ar-kick Kuantitatif</h1>
+    <p>Analisis Nilai Periode Objek Bandul Bola pada Alat Ar-kick</p>
+
+    <div id="mainContainer">
+        <div id="canvasContainer">
+            <canvas id="arkickCanvas" width="400" height="420"></canvas>
+            <canvas id="energyCanvas" width="160" height="420"></canvas>
+        </div>
+
+        <div class="side-panel">
+            <div class="panel">
+                <div class="panel-title">🎛️ Pengaturan Parameter</div>
+                <div class="control-group">
+                    <label>Panjang Tali (L): <span id="lenVal" class="value-display">160 cm</span></label>
+                    <input type="range" id="lengthSlider" min="100" max="220" value="160">
+                </div>
+
+                <div class="control-group">
+                    <label>Massa/Ukuran Bola: <span id="massVal" class="value-display">Size 5</span></label>
+                    <input type="range" id="massSlider" min="0.6" max="1.5" step="0.1" value="1.0">
+                </div>
+
+                <div class="toggle-container">
+                    <label style="font-weight: bold; color: #34495e;">Hambatan Udara:</label>
+                    <label class="switch">
+                        <input type="checkbox" id="airResistanceToggle">
+                        <span class="slider-toggle"></span>
+                    </label>
+                </div>
+
+                <div class="btn-group">
+                    <button id="pauseBtn" class="btn-play">Pause / Play</button>
+                    <button id="resetBtn" class="btn-reset">Tendang Ulang</button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">📊 Data Fisika Bandul</div>
+                <div class="data-row">
+                    <span>Periode Teoritis (T):</span>
+                    <span id="periodText" class="data-val">0.00 s</span>
+                </div>
+                <div class="data-row">
+                    <span>Jumlah Ayunan:</span>
+                    <span id="cycleText" class="data-val" style="color: #3498db;">0</span>
+                </div>
+                <div class="data-row">
+                    <span>Status Sistem:</span>
+                    <span id="statusText" class="data-val" style="color: #e67e22;">Ideal (Kekal)</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('arkickCanvas');
+        const ctx = canvas.getContext('2d');
+        const energyCanvas = document.getElementById('energyCanvas');
+        const eCtx = energyCanvas.getContext('2d');
+
+        // Elemen UI
+        const lengthSlider = document.getElementById('lengthSlider');
+        const massSlider = document.getElementById('massSlider');
+        const airResistanceToggle = document.getElementById('airResistanceToggle');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
+        // Parameter Fisika Konstan (Skala Rasio Dunia Nyata)
+        const g_real = 9.8; // Konduktor kalkulasi rumus asli matematika
+        const g_sim = 0.4;  // Kecepatan gravitasi visual layar kanvas
+        const pivotX = 160; 
+        const pivotY = 135; 
+
+        let length = parseFloat(lengthSlider.value);
+        let mass = parseFloat(massSlider.value);
+        let angle = Math.PI / 3.5; 
+        let angleVelocity = 0;
+        let angleAcceleration = 0;
+        let isRunning = true;
+
+        // Tracker Ayunan
+        let countCycles = 0;
+        let previousSign = 0;
+
+        let initialH = length * (1 - Math.cos(angle));
+        let maxEnergy = mass * g_sim * initialH;
+
+        function drawHumanModel() {
+            // Kepala
+            ctx.beginPath(); ctx.arc(160, 75, 18, 0, 2 * Math.PI); ctx.fillStyle = "#34495e"; ctx.fill();
+            // Badan
+            ctx.lineWidth = 32; ctx.lineCap = "round"; ctx.strokeStyle = "#34495e";
+            ctx.beginPath(); ctx.moveTo(160, 95); ctx.lineTo(160, 210); ctx.stroke();
+            // Sabuk dada Ar-kick
+            ctx.lineWidth = 10; ctx.strokeStyle = "#e67e22";
+            ctx.beginPath(); ctx.moveTo(145, 135); ctx.lineTo(175, 135); ctx.stroke();
+            // Pengait tali
+            ctx.beginPath(); ctx.arc(pivotX, pivotY, 4, 0, 2 * Math.PI); ctx.fillStyle = "#fff"; ctx.fill();
+            // Kaki tumpu
+            ctx.lineWidth = 10; ctx.strokeStyle = "#2c3e50";
+            ctx.beginPath(); ctx.moveTo(155, 210); ctx.lineTo(150, 320); ctx.stroke();
+            // Rumput dasar
+            ctx.lineWidth = 4; ctx.strokeStyle = "#27ae60";
+            ctx.beginPath(); ctx.moveTo(30, 320); ctx.lineTo(370, 320); ctx.stroke();
+        }
+
+        function updatePhysics() {
+            length = parseFloat(lengthSlider.value);
+            mass = parseFloat(massSlider.value);
+
+            // 1. Hitung Periode Konseptual Nyata (Menggunakan L dalam meter untuk rumus asli)
+            let lengthInMeters = length / 100; 
+            let period = 2 * Math.PI * Math.sqrt(lengthInMeters / g_real);
+            
+            document.getElementById('lenVal').innerText = length + " cm";
+            document.getElementById('massVal').innerText = mass === 1.0 ? "Size 5 (Standar)" : (mass < 1.0 ? "Size 4 (Anak)" : "Bola Berat");
+            document.getElementById('periodText').innerText = period.toFixed(2) + " s";
+
+            if (!isRunning) return;
+
+            // 2. Persamaan Diferensial Gerak Bandul
+            angleAcceleration = (-g_sim / length) * Math.sin(angle);
+            angleVelocity += angleAcceleration;
+            
+            // Logika Hambatan Udara (Damping)
+            if (airResistanceToggle.checked) {
+                angleVelocity *= 0.994; // Mengurangi kecepatan energi mekanik secara gradual
+                document.getElementById('statusText').innerText = "Teredam (Riil)";
+                document.getElementById('statusText').style.color = "#c0392b";
+            } else {
+                document.getElementById('statusText').innerText = "Ideal (Kekal)";
+                document.getElementById('statusText').style.color = "#27ae60";
+            }
+
+            angle += angleVelocity;
+
+            // 3. Logika Penghitung Jumlah Ayunan (Siklus Bolak-Balik)
+            // Mendeteksi kapan kecepatan sudut berbalik arah tanda (+ ke - atau sebaliknya)
+            let currentSign = Math.sign(angleVelocity);
+            if (previousSign !== 0 && previousSign !== currentSign) {
+                countCycles += 0.5; // Setengah getaran terdeteksi setiap balik arah di ujung simpangan
+                document.getElementById('cycleText').innerText = Math.floor(countCycles);
+            }
+            previousSign = currentSign;
+        }
+
+        function drawSimulation() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawHumanModel();
+
+            const ballX = pivotX + length * Math.sin(angle);
+            const ballY = pivotY + length * Math.cos(angle);
+
+            // Garis busur lintasan
+            ctx.beginPath(); ctx.setLineDash([3, 6]);
+            ctx.arc(pivotX, pivotY, length, 0.2 * Math.PI, 0.8 * Math.PI);
+            ctx.strokeStyle = "#bdc3c7"; ctx.stroke(); ctx.setLineDash([]);
+
+            // Tali Tambang Kaku (Tidak elastis)
+            ctx.beginPath(); ctx.moveTo(pivotX, pivotY); ctx.lineTo(ballX, ballY);
+            ctx.strokeStyle = "#7f8c8d"; ctx.lineWidth = 2; ctx.stroke();
+
+            // Gambar Bola Ar-kick
+            const ballRadius = 12 * mass;
+            ctx.beginPath(); ctx.arc(ballX, ballY, ballRadius, 0, 2 * Math.PI);
+            ctx.fillStyle = "#fff"; ctx.fill(); ctx.strokeStyle = "#000"; ctx.lineWidth = 2; ctx.stroke();
+            
+            // Corak hitam tengah bola
+            ctx.fillStyle = "#000"; ctx.beginPath();
+            ctx.arc(ballX, ballY, ballRadius * 0.4, 0, 2 * Math.PI); ctx.fill();
+
+            // Hitung Grafik Batang Energi
+            const currentH = length * (1 - Math.cos(angle));
+            const ep = mass * g_sim * currentH;
+            const ek = 0.5 * mass * Math.pow(length * angleVelocity, 2);
+            const em = ep + ek;
+
+            drawEnergyBars(ep, ek, em);
+        }
+
+        function drawEnergyBars(ep, ek, em) {
+            eCtx.clearRect(0, 0, energyCanvas.width, energyCanvas.height);
+
+            const scale = 300 / Math.max(maxEnergy, em);
+            const barWidth = 24;
+            const startX = 20;
+            const bottomY = 360;
+
+            // EP (Merah)
+            const epHeight = Math.max(0, ep * scale);
+            eCtx.fillStyle = '#e74c3c'; eCtx.fillRect(startX, bottomY - epHeight, barWidth, epHeight);
+            eCtx.fillStyle = '#2c3e50'; eCtx.font = "bold 11px Arial"; eCtx.fillText("EP", startX + 5, bottomY + 20);
+
+            // EK (Hijau)
+            const ekHeight = Math.max(0, ek * scale);
+            eCtx.fillStyle = '#2ecc71'; eCtx.fillRect(startX + 38, bottomY - ekHeight, barWidth, ekHeight);
+            eCtx.fillStyle = '#2c3e50'; eCtx.fillText("EK", startX + 43, bottomY + 20);
+
+            // EM (Kuning)
+            const emHeight = Math.max(0, em * scale);
+            eCtx.fillStyle = '#f1c40f'; eCtx.fillRect(startX + 76, bottomY - emHeight, barWidth, emHeight);
+            eCtx.fillStyle = '#2c3e50'; eCtx.fillText("EM", startX + 81, bottomY + 20);
+
+            // Ground Line
+            eCtx.beginPath(); eCtx.moveTo(10, bottomY); eCtx.lineTo(150, bottomY); eCtx.strokeStyle = '#7f8c8d'; eCtx.stroke();
+        }
+
+        function mainLoop() {
+            updatePhysics();
+            drawSimulation();
+            requestAnimationFrame(mainLoop);
+        }
+
+        pauseBtn.addEventListener('click', () => {
+            isRunning = !isRunning;
+            pauseBtn.style.backgroundColor = isRunning ? '#2ecc71' : '#f39c12';
+        });
+
+        resetBtn.addEventListener('click', () => {
+            angle = Math.PI / 3.5;
+            angleVelocity = 0;
+            countCycles = 0;
+            document.getElementById('cycleText').innerText = "0";
+            length = parseFloat(lengthSlider.value);
+            mass = parseFloat(massSlider.value);
+            initialH = length * (1 - Math.cos(angle));
+            maxEnergy = mass * g_sim * initialH;
+        });
+
+        mainLoop();
+    </script>
+</body>
+</html>
